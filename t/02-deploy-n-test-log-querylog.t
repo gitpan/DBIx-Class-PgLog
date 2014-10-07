@@ -8,9 +8,10 @@
 # 2014-08-18 - created
 
 use Try::Tiny;
-
 use Data::Dumper;
 use Test::More;
+use DBIx::Class::QueryLog;
+use DBIx::Class::QueryLog::Analyzer;
 
 use lib qw( lib t/lib );
 use DBIx::Class::PgLog;
@@ -32,6 +33,10 @@ if( !$database || !$user ) {
 		$user, $password, 
 		{ RaiseError => 1, PrintError => 1, 'quote_char' => '"', 'quote_field_names' => '0', 'name_sep' => '.' } 
 	) || die("cant connect");
+
+	my $ql = DBIx::Class::QueryLog->new;
+	$schema->storage->debugobj($ql);
+	$schema->storage->debug(1);
 
 	my $pgl_schema;
 
@@ -85,6 +90,7 @@ if( !$database || !$user ) {
 	ok($user_01->email eq 'sheeju@exceleron.com', 'Email Updated to sheeju@exceleron.com');
 	$log = $schema->resultset('Log')->search({Table => 'User', TableId => $user_01->id, TableAction => 'UPDATE'})->first;
 	ok($log->table_action eq 'UPDATE', 'UPDATE Confirmed');
+
 
 	$schema->txn_do(
 		sub {
@@ -178,6 +184,11 @@ if( !$database || !$user ) {
 
 	ok($user->name eq 'NonLogsetUser', 'Inserted NonLogsetUser');
 
+	my $ana = DBIx::Class::QueryLog::Analyzer->new({ querylog => $ql });
+	my @queries = $ana->get_sorted_queries;
+	print Dumper(\@queries);
+	my $totqueries = $ana->get_totaled_queries;
+	print Dumper($totqueries);
+	done_testing();
 }
-done_testing();
 1;
